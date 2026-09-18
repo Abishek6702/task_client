@@ -1,16 +1,120 @@
-# React + Vite
+# Multi-Company Task Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A production-ready, full-stack multi-tenant task management system designed for independent companies to manage their projects and tasks within a single isolated software installation.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Multi-Tenant Architecture**: Complete data isolation between organizations. Users from Company A cannot see or access data from Company B.
+- **Role-Based Access Control**: Strict permissions for Super Admin, Organization Admin, Project Manager, Team Lead, and Employees.
+- **Project Management**: Create and track projects, assign project managers, and manage project members.
+- **Task Management**: Create tasks, assign them to authorized project members, set priorities, due dates, and track status.
+- **Kanban Board**: Drag-and-drop Kanban board for visualizing project workflows.
+- **Dashboard**: Role-specific dashboards showing critical metrics, upcoming deadlines, and activity feeds.
+- **Security**: JWT-based authentication, bcrypt password hashing, Express Helmet, and server-side tenant isolation enforcement.
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+**Frontend**:
+- React.js (Vite)
+- Tailwind CSS
+- Redux Toolkit
+- React Router DOM
+- Axios
+- Lucide React
 
-## Expanding the Oxlint configuration
+**Backend**:
+- Node.js
+- Express.js
+- MongoDB / Mongoose
+- JSON Web Tokens (JWT)
+- bcryptjs
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Folder Structure
+
+```
+├── backend/
+│   ├── config/
+│   ├── controllers/
+│   ├── middleware/
+│   ├── models/
+│   ├── routes/
+│   ├── utils/
+│   ├── .env.example
+│   ├── seed.js
+│   └── server.js
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── layout/
+│   │   ├── pages/
+│   │   ├── store/
+│   │   ├── utils/
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── .env.example
+│   └── tailwind.config.js
+└── README.md
+```
+
+## Setup Instructions
+
+### Prerequisites
+- Node.js (v16+)
+- MongoDB (Local or Atlas)
+
+### 1. Backend Setup
+
+```bash
+cd backend
+npm install
+```
+
+Copy the example environment file:
+```bash
+cp .env.example .env
+```
+Ensure your `MONGO_URI` is correctly pointing to your MongoDB instance.
+
+### 2. Database Seeding (Crucial for testing)
+
+The application comes with a seed script that generates two isolated companies (ABC Technologies and XYZ Solutions) along with sample users, projects, and tasks.
+
+```bash
+cd backend
+npm run seed
+```
+
+This will create:
+- **Admin at ABC**: `admin@abctech.com` (password: `password123`)
+- **Employee at ABC**: `emp1@abctech.com` (password: `password123`)
+- **Admin at XYZ**: `admin@xyzsolutions.com` (password: `password123`)
+
+### 3. Frontend Setup
+
+```bash
+cd frontend
+npm install
+```
+
+Copy the example environment file:
+```bash
+cp .env.example .env
+```
+
+### 4. Running the Application
+
+**Run Backend (from `/backend` directory):**
+```bash
+npm run dev
+```
+
+**Run Frontend (from `/frontend` directory):**
+```bash
+npm run dev
+```
+
+Visit `http://localhost:5173` to view the application.
+
+## Multi-Tenant Security Note
+
+The application enforces tenant isolation strictly on the server-side. The `organizationId` is always extracted from the authenticated user's JWT (`req.user.organizationId`) and never trusted from the client request body. All MongoDB queries explicitly include the `organizationId` to ensure data boundaries are respected.
