@@ -18,7 +18,7 @@ import {
   BarChart3,
   Building2
 } from 'lucide-react';
-const { logout } = require('../store/slices/authSlice');
+import { logout } from '../store/slices/authSlice';
 
 const MainLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { Building2, Search, MoreVertical, Edit2, CheckCircle2, XCircle } from 'lucide-react';
+import { Building2, Search } from 'lucide-react';
 import api from '../utils/api';
-import { PageHeader, Card, Badge, SkeletonRow, Avatar } from '../components/ui';
+import { Badge, SkeletonRow } from '../components/ui';
 import { useToast } from '../components/Toast';
 
 const Organizations = () => {
@@ -58,12 +58,15 @@ const Organizations = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Organizations"
-        subtitle="Manage all tenant companies on the platform"
-        icon={Building2}
-      />
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900">Organizations</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Manage all tenant companies on the platform.</p>
+        </div>
+      </div>
 
+      {/* Filters */}
       <div className="flex items-center justify-between gap-4">
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -77,18 +80,18 @@ const Organizations = () => {
         </div>
       </div>
 
-      <Card>
+      <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/50">
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Organization Name</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Created</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Organization Name</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Created</th>
+                <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="bg-white divide-y divide-slate-100">
               {loading ? (
                 Array(5).fill(0).map((_, i) => (
                   <tr key={i}>
@@ -100,8 +103,8 @@ const Organizations = () => {
                 ))
               ) : filteredOrgs.length > 0 ? (
                 filteredOrgs.map((org) => (
-                  <tr key={org._id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4">
+                  <tr key={org._id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-lg bg-brand-50 text-brand-700 border border-brand-100 flex items-center justify-center font-bold text-lg">
                           {org.name.charAt(0).toUpperCase()}
@@ -112,26 +115,25 @@ const Organizations = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-5 py-4">
                       <Badge 
-                        label={org.status} 
-                        color={org.status === 'active' ? 'emerald' : 'slate'} 
+                        label={org.status === 'active' ? 'Active' : 'Archived'} 
                         showDot 
                       />
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-5 py-4">
                       <span className="text-sm text-slate-600">
-                        {new Date(org.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                        {new Date(org.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-5 py-4 text-right">
                       <button
                         onClick={() => handleToggleStatus(org)}
                         disabled={updating === org._id}
                         className={`text-xs font-medium px-3 py-1.5 rounded-md border transition-colors ${
                           org.status === 'active' 
                             ? 'bg-white border-slate-200 text-red-600 hover:bg-red-50 hover:border-red-200'
-                            : 'bg-white border-slate-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200'
+                            : 'bg-white border-slate-200 text-brand-600 hover:bg-brand-50 hover:border-brand-200'
                         } disabled:opacity-50`}
                       >
                         {updating === org._id ? 'Updating...' : org.status === 'active' ? 'Deactivate' : 'Activate'}
@@ -141,7 +143,7 @@ const Organizations = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="4" className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan="4" className="px-5 py-12 text-center text-slate-500 text-sm">
                     No organizations found matching "{search}"
                   </td>
                 </tr>
@@ -149,7 +151,7 @@ const Organizations = () => {
             </tbody>
           </table>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };
