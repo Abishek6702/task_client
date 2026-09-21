@@ -17,8 +17,8 @@ const ResetPassword = () => {
     if (password !== confirmPassword) {
       return setError('Passwords do not match');
     }
-    if (password.length < 6) {
-      return setError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      return setError('Password must be at least 8 characters');
     }
 
     setError('');
@@ -39,7 +39,7 @@ const ResetPassword = () => {
     <div className="w-full max-w-md mx-auto">
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Set new password</h2>
-        <p className="text-slate-500 mt-2">Your new password must be at least 6 characters.</p>
+        <p className="text-slate-500 mt-2">Your new password must be at least 8 characters.</p>
       </div>
 
       {success ? (

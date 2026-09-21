@@ -8,7 +8,9 @@ import { useToast } from '../components/Toast';
 import ProjectBoard from './ProjectBoard';
 import TaskTable from '../components/TaskTable';
 import ProjectMembers from '../components/ProjectMembers';
+import ProjectDivisions from '../components/ProjectDivisions';
 import ActivityList from '../components/ActivityList';
+import Pagination from '../components/Pagination';
 import { format } from 'date-fns';
 
 const TABS = [
@@ -24,23 +26,35 @@ const ProjectDetails = () => {
   const { user } = useSelector(state => state.auth);
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [divisions, setDivisions] = useState([]);
+  const [taskPagination, setTaskPagination] = useState(null);
+  const [taskPage, setTaskPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
+  const [activeStatsTab, setActiveStatsTab] = useState('all');
   const [updating, setUpdating] = useState(false);
   const { addToast } = useToast();
+  const isAdmin = ['organization_admin'].includes(user?.role);
   
   // Settings Form State
   const [editForm, setEditForm] = useState(null);
 
-  const fetchProject = async () => {
+  const fetchProject = async (requestedTaskPage = taskPage) => {
     try {
-      const [projRes, taskRes] = await Promise.all([
+      const [projRes, taskRes, summaryRes, divRes] = await Promise.all([
         api.get(`/projects/${id}`),
-        api.get(`/tasks?projectId=${id}`),
+        api.get(`/tasks?projectId=${id}&page=${requestedTaskPage}&limit=20`),
+        api.get(`/projects/${id}/summary`),
+        api.get(`/divisions?projectId=${id}`)
       ]);
       setProject(projRes.data.data);
       setTasks(taskRes.data.data);
+      setTaskPagination(taskRes.data.pagination);
+      setSummary(summaryRes.data.data);
+      setDivisions(divRes.data.data || []);
+      setTaskPage(taskRes.data.pagination?.page || requestedTaskPage);
       setEditForm(projRes.data.data);
     } catch (err) {
       console.error(err);
@@ -50,12 +64,18 @@ const ProjectDetails = () => {
     }
   };
 
-  useEffect(() => { fetchProject(); }, [id]);
+  useEffect(() => { setTaskPage(1); fetchProject(1); }, [id]);
 
   const canManage = project && (
     user?.role === 'organization_admin' ||
     project.managerId?._id === user?._id ||
     project.managerId === user?._id
+  );
+
+  const canCreateTask = project && (
+    canManage ||
+    ((user?.role === 'employee' || user?.role === 'team_lead') && 
+     project.members?.some(m => String(m._id || m) === String(user?._id)))
   );
 
   if (loading) {
@@ -73,10 +93,10 @@ const ProjectDetails = () => {
   }
 
   const taskStats = {
-    total: tasks.length,
-    done: tasks.filter(t => t.status === 'Done').length,
-    inProgress: tasks.filter(t => t.status === 'In Progress').length,
-    todo: tasks.filter(t => t.status === 'To Do').length,
+    total: summary?.totalTasks ?? tasks.length,
+    done: summary?.completedTasks ?? tasks.filter(t => t.status === 'Done').length,
+    inProgress: summary?.statusBreakdown?.find(item => item._id === 'In Progress')?.count ?? tasks.filter(t => t.status === 'In Progress').length,
+    todo: summary?.statusBreakdown?.find(item => item._id === 'To Do')?.count ?? tasks.filter(t => t.status === 'To Do').length,
   };
 
   const handleUpdateProject = async (e) => {
@@ -161,19 +181,76 @@ const ProjectDetails = () => {
           </div>
         </div>
 
-        {/* Task stats mini-row */}
-        <div className="grid grid-cols-4 gap-4 mt-5 pt-4 border-t border-slate-100">
-          {[
-            { label: 'Total', value: taskStats.total, color: 'text-slate-700' },
-            { label: 'To Do', value: taskStats.todo, color: 'text-slate-600' },
-            { label: 'In Progress', value: taskStats.inProgress, color: 'text-blue-600' },
-            { label: 'Done', value: taskStats.done, color: 'text-green-600' },
-          ].map(s => (
-            <div key={s.label} className="text-center">
-              <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
-              <p className="text-xs text-slate-500">{s.label}</p>
+        {/* Task stats Tabbed View */}
+        <div className="mt-6 border-t border-slate-100 pt-4">
+          {/* Show division tabs only for admins */}
+          {isAdmin && (
+            <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+              <button
+                onClick={() => setActiveStatsTab('all')}
+                className={`px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${
+                  activeStatsTab === 'all'
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                All Tasks
+              </button>
+              {divisions?.map(div => (
+                <button
+                  key={div._id}
+                  onClick={() => setActiveStatsTab(div._id)}
+                  className={`px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${
+                    activeStatsTab === div._id
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {div.name}
+                </button>
+              ))}
+              {summary?.divisionBreakdown?.find(d => !d._id) && (
+                <button
+                  onClick={() => setActiveStatsTab('unassigned')}
+                  className={`px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${
+                    activeStatsTab === 'unassigned'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  No Division
+                </button>
+              )}
             </div>
-          ))}
+          )}
+
+          <div className="grid grid-cols-4 gap-4">
+            {(() => {
+              let currentStats = taskStats;
+
+              // For admins switching division tabs, filter by that division's breakdown
+              if (isAdmin && activeStatsTab !== 'all') {
+                const divIdToFind = activeStatsTab === 'unassigned' ? null : activeStatsTab;
+                const found = summary?.divisionBreakdown?.find(d =>
+                  divIdToFind === null ? !d._id : String(d._id) === String(divIdToFind)
+                );
+                currentStats = found || { total: 0, todo: 0, inProgress: 0, done: 0 };
+              }
+              // Employees: backend already filtered summary to their own tasks, use taskStats directly
+
+              return [
+                { label: 'Total', value: currentStats.total, color: 'text-slate-700' },
+                { label: 'To Do', value: currentStats.todo, color: 'text-slate-600' },
+                { label: 'In Progress', value: currentStats.inProgress, color: 'text-blue-600' },
+                { label: 'Done', value: currentStats.done, color: 'text-green-600' },
+              ].map(s => (
+                <div key={s.label} className="text-center bg-slate-50 rounded-lg p-3">
+                  <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+                  <p className="text-[10px] uppercase text-slate-500 font-medium mt-1">{s.label}</p>
+                </div>
+              ));
+            })()}
+          </div>
         </div>
       </div>
 
@@ -248,13 +325,18 @@ const ProjectDetails = () => {
         </div>
       )}
       {activeTab === 'tasks' && (
-        <TaskTable projectId={id} tasks={tasks} setTasks={setTasks} canManage={canManage} project={project} onRefresh={fetchProject} />
+        <>
+          <TaskTable projectId={id} tasks={tasks} setTasks={setTasks} canManage={canManage} canCreateTask={canCreateTask} project={project} onRefresh={() => fetchProject(taskPage)} />
+          <div className="card mt-4">
+            <Pagination page={taskPagination?.page || taskPage} totalPages={taskPagination?.totalPages || taskPagination?.pages} onPageChange={fetchProject} />
+          </div>
+        </>
       )}
       {activeTab === 'board' && (
-      <ProjectBoard projectId={id} projectData={project} />
+      <ProjectBoard projectId={id} projectData={project} canManage={canManage} canCreateTask={canCreateTask} />
       )}
       {activeTab === 'members' && (
-        <ProjectMembers project={project} canManage={canManage} onRefresh={fetchProject} />
+        <div className="space-y-6"><ProjectMembers project={project} canManage={canManage} onRefresh={fetchProject} /><ProjectDivisions project={project} canManage={canManage} /></div>
       )}
       {activeTab === 'activity' && (
         <div className="card p-6">

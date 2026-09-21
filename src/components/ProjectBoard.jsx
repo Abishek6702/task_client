@@ -69,7 +69,8 @@ const TaskCard = ({ task, index, onClick }) => (
   </Draggable>
 );
 
-const ProjectBoard = ({ projectId, tasks, setTasks, canManage, project }) => {
+const ProjectBoard = ({ projectId, projectData: project, canManage, canCreateTask }) => {
+  const [tasks, setTasks] = useState([]);
   const { addToast } = useToast();
   const [showCreate, setShowCreate] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
@@ -99,7 +100,7 @@ const ProjectBoard = ({ projectId, tasks, setTasks, canManage, project }) => {
     <div>
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-slate-500">{tasks.length} tasks in this project</p>
-        {canManage && (
+        {canCreateTask && (
           <button onClick={() => setShowCreate(true)} className="btn btn-primary">
             <Plus className="h-4 w-4 mr-2" /> Add Task
           </button>

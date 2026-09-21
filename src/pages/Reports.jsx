@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  Legend, LineChart, Line, CartesianGrid, Area, AreaChart,
+  Legend, CartesianGrid, Area, AreaChart,
 } from 'recharts';
 import api from '../utils/api';
 import { Skeleton } from '../components/ui';
-import { format, subDays } from 'date-fns';
+import { useSelector } from 'react-redux';
 
 const STATUS_COLORS = {
   'To Do':      '#94a3b8',
@@ -41,41 +41,32 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 const Reports = () => {
-  const [tasks, setTasks]       = useState([]);
-  const [projects, setProjects] = useState([]);
   const [workload, setWorkload] = useState([]);
   const [stats, setStats]       = useState(null);
   const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState('');
+  const { user } = useSelector(state => state.auth);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [tasksRes, workloadRes, statsRes, projectsRes] = await Promise.all([
-          api.get('/tasks?limit=500'),
-          api.get('/reports/workload'),
-          api.get('/reports/dashboard'),
-          api.get('/projects'),
-        ]);
-        setTasks(tasksRes.data.data);
-        setWorkload(workloadRes.data.data);
+        const statsRes = await api.get('/reports/dashboard');
         setStats(statsRes.data.data);
-        setProjects(projectsRes.data.data);
+        if (['organization_admin', 'project_manager', 'team_lead'].includes(user?.role)) {
+          const workloadRes = await api.get('/reports/workload');
+          setWorkload(workloadRes.data.data);
+        }
       } catch (err) {
-        console.error(err);
+        setError(err.response?.data?.message || 'Unable to load reports.');
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, []);
+  }, [user]);
 
-  // Status breakdown
-  const byStatus = tasks.reduce((acc, t) => { acc[t.status] = (acc[t.status] || 0) + 1; return acc; }, {});
-  const statusData = Object.entries(byStatus).map(([name, value]) => ({ name, value }));
-
-  // Priority breakdown
-  const byPriority = tasks.reduce((acc, t) => { const p = t.priority || 'Medium'; acc[p] = (acc[p] || 0) + 1; return acc; }, {});
-  const priorityData = Object.entries(byPriority).map(([name, value]) => ({ name, value }));
+  const statusData = (stats?.statusBreakdown || []).map(item => ({ name: item._id || 'Unknown', value: item.count || 0 }));
+  const priorityData = (stats?.priorityBreakdown || []).map(item => ({ name: item._id || 'Unknown', value: item.count || 0 }));
 
   // Team workload
   const workloadData = workload
@@ -84,8 +75,7 @@ const Reports = () => {
     .sort((a, b) => b.tasks - a.tasks)
     .slice(0, 10);
 
-  // Project completion rates
-  const projectData = projects
+  const projectData = (stats?.projectProgress || [])
     .map(p => ({
       name: p.projectCode || p.name.slice(0, 10),
       progress: p.progress || 0,
@@ -93,25 +83,15 @@ const Reports = () => {
     }))
     .slice(0, 8);
 
-  // Task creation trend (last 14 days by createdAt)
-  const trendMap = {};
-  for (let i = 13; i >= 0; i--) {
-    const day = format(subDays(new Date(), i), 'MMM d');
-    trendMap[day] = 0;
-  }
-  tasks.forEach(t => {
-    const day = format(new Date(t.createdAt), 'MMM d');
-    if (trendMap.hasOwnProperty(day)) trendMap[day]++;
-  });
-  const trendData = Object.entries(trendMap).map(([date, count]) => ({ date, count }));
+  const trendData = (stats?.taskTrend || []).map(item => ({ date: item._id, count: item.count || 0 }));
 
   const kpis = [
     { label: 'Active Projects', value: stats?.activeProjects ?? '–', bg: 'bg-brand-50', text: 'text-brand-700', border: 'border-brand-100' },
-    { label: 'Total Tasks',     value: tasks.length,                  bg: 'bg-slate-50',  text: 'text-slate-700', border: 'border-slate-200' },
+    { label: 'Total Tasks',     value: stats?.totalTasks ?? '–',      bg: 'bg-slate-50',  text: 'text-slate-700', border: 'border-slate-200' },
     { label: 'Completed',       value: stats?.completedTasks ?? '–',  bg: 'bg-green-50',  text: 'text-green-700', border: 'border-green-100' },
-    { label: 'In Progress',     value: tasks.filter(t => t.status === 'In Progress').length, bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-100' },
+    { label: 'Open Tasks',      value: stats?.openTasks ?? '–',       bg: 'bg-blue-50',   text: 'text-blue-700', border: 'border-blue-100' },
     { label: 'Overdue',         value: stats?.overdueTasks ?? '–',    bg: 'bg-red-50',    text: 'text-red-700',   border: 'border-red-100' },
-    { label: 'Completion Rate', value: tasks.length > 0 ? `${Math.round((stats?.completedTasks || 0) / tasks.length * 100)}%` : '0%', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-100' },
+    { label: 'Completion Rate', value: stats?.totalTasks > 0 ? `${Math.round((stats.completedTasks / stats.totalTasks) * 100)}%` : '0%', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-100' },
   ];
 
   return (
@@ -120,6 +100,8 @@ const Reports = () => {
         <h1 className="text-xl font-semibold text-slate-900">Reports</h1>
         <p className="text-sm text-slate-500 mt-0.5">Analytics and performance overview for your organization.</p>
       </div>
+
+      {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       {/* KPI Row */}
       {loading ? (

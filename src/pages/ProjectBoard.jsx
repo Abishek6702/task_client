@@ -23,7 +23,7 @@ const PRIORITY_STYLES = {
   Low:      'bg-slate-50 text-slate-500 border-slate-200',
 };
 
-const QuickAddCard = ({ columnId, projectId, members, onAdded, onCancel }) => {
+const QuickAddCard = ({ columnId, projectId, members, onAdded, onCancel, isEmployee }) => {
   const [title, setTitle] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [saving, setSaving] = useState(false);
@@ -57,7 +57,7 @@ const QuickAddCard = ({ columnId, projectId, members, onAdded, onCancel }) => {
         placeholder="Task title..."
         className="w-full text-sm border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-brand-500"
       />
-      {members.length > 0 && (
+      {members.length > 0 && !isEmployee && (
         <select
           value={assignedTo}
           onChange={e => setAssignedTo(e.target.value)}
@@ -159,11 +159,12 @@ const TaskCard = ({ task, index, onClick }) => {
   );
 };
 
-const ProjectBoard = ({ projectId: propProjectId, projectData }) => {
+const ProjectBoard = ({ projectId: propProjectId, projectData, canCreateTask }) => {
   const { id: paramId } = useParams();
   const id = propProjectId || paramId;
   const { user } = useSelector(state => state.auth);
   const { addToast } = useToast();
+  const isEmployee = user?.role === 'employee';
 
   const [project, setProject] = useState(projectData || null);
   const [tasks, setTasks] = useState([]);
@@ -276,13 +277,15 @@ const ProjectBoard = ({ projectId: propProjectId, projectData }) => {
                       {colTasks.length}
                     </span>
                   </div>
-                  <button
-                    onClick={() => setAddingTo(col.id)}
-                    className="text-slate-400 hover:text-brand-600 transition-colors"
-                    title={`Add to ${col.label}`}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
+                  {canCreateTask !== false && (
+                    <button
+                      onClick={() => setAddingTo(col.id)}
+                      className="text-slate-400 hover:text-brand-600 transition-colors"
+                      title={`Add to ${col.label}`}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Droppable area */}
@@ -300,6 +303,7 @@ const ProjectBoard = ({ projectId: propProjectId, projectData }) => {
                           columnId={col.id}
                           projectId={id}
                           members={members}
+                          isEmployee={isEmployee}
                           onAdded={handleTaskAdded}
                           onCancel={() => setAddingTo(null)}
                         />

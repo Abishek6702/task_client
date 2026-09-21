@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   X, CheckCircle2, Clock, Circle, MessageSquare, Paperclip,
   Loader2, Send, Trash2, Edit2, Activity, ChevronDown, Plus, UserCircle, Flag,
-  Calendar, Hash, AlertTriangle, Copy
+  Calendar, Hash, AlertTriangle, Copy, Play, Square
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useSelector } from 'react-redux';
@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { Badge, Avatar, Skeleton } from './ui';
 import { useToast } from './Toast';
+import Pagination from './Pagination';
 
 const STATUS_OPTIONS = ['To Do', 'In Progress', 'Review', 'Done', 'Blocked', 'On Hold'];
 const PRIORITY_OPTIONS = ['Low', 'Medium', 'High', 'Critical'];
@@ -143,6 +144,8 @@ const TaskDetailsModal = ({ taskId, onClose, onUpdate }) => {
   const [subtasks, setSubtasks] = useState([]);
   const [comments, setComments] = useState([]);
   const [activities, setActivities] = useState([]);
+  const [commentsPagination, setCommentsPagination] = useState(null);
+  const [activityPagination, setActivityPagination] = useState(null);
   const [projectUsers, setProjectUsers] = useState([]);
   const [projectTasks, setProjectTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -151,6 +154,14 @@ const TaskDetailsModal = ({ taskId, onClose, onUpdate }) => {
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [editingComment, setEditingComment] = useState(null); // { _id, message }
+  const [mentionUsers, setMentionUsers] = useState([]);
+  const [mentionQuery, setMentionQuery] = useState(null);
+  const [selectedMentions, setSelectedMentions] = useState([]);
+  const [timeEntries, setTimeEntries] = useState([]);
+  const [activeTimer, setActiveTimer] = useState(null);
+  const [manualMinutes, setManualMinutes] = useState('');
+  const [timeNotes, setTimeNotes] = useState('');
+  const [timeError, setTimeError] = useState('');
 
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [creatingSubtask, setCreatingSubtask] = useState(false);
@@ -164,17 +175,24 @@ const TaskDetailsModal = ({ taskId, onClose, onUpdate }) => {
       const [taskRes, subRes, comRes] = await Promise.all([
         api.get(`/tasks/${taskId}`),
         api.get(`/tasks?parentTaskId=${taskId}&limit=100`),
-        api.get(`/comments/task/${taskId}`),
+        api.get(`/comments/task/${taskId}?page=1&limit=20`),
       ]);
       const taskData = taskRes.data.data;
       setTask(taskData);
+      try {
+        const timeRes = await api.get(`/time-entries/task/${taskId}?limit=100`);
+        setTimeEntries(timeRes.data.data);
+        setActiveTimer(timeRes.data.data.find(entry => !entry.endTime && entry.userId?._id === user?._id) || null);
+      } catch (timeLoadError) { setTimeError(timeLoadError.response?.data?.message || 'Failed to load time entries'); }
       setSubtasks(subRes.data.data);
       setComments(comRes.data.data);
+      setCommentsPagination(comRes.data.pagination);
 
       // Non-critical: activity log
       try {
-        const actRes = await api.get(`/activity/task/${taskId}`);
+        const actRes = await api.get(`/activity/task/${taskId}?page=1&limit=20`);
         setActivities(actRes.data.data);
+        setActivityPagination(actRes.data.pagination);
       } catch {
         setActivities([]);
       }
@@ -206,6 +224,34 @@ const TaskDetailsModal = ({ taskId, onClose, onUpdate }) => {
   }, [taskId]);
 
   useEffect(() => { fetchTaskDetails(); }, [fetchTaskDetails]);
+
+  const fetchCommentsPage = async (page) => {
+    const res = await api.get(`/comments/task/${taskId}?page=${page}&limit=20`);
+    setComments(res.data.data);
+    setCommentsPagination(res.data.pagination);
+  };
+
+  const fetchActivityPage = async (page) => {
+    const res = await api.get(`/activity/task/${taskId}?page=${page}&limit=20`);
+    setActivities(res.data.data);
+    setActivityPagination(res.data.pagination);
+  };
+
+  const refreshTime = async () => {
+    const response = await api.get(`/time-entries/task/${taskId}?limit=100`);
+    setTimeEntries(response.data.data);
+    setActiveTimer(response.data.data.find(entry => !entry.endTime && String(entry.userId?._id || entry.userId) === String(user?._id)) || null);
+  };
+
+  const startTimer = async () => {
+    try { await api.post('/time-entries/start', { taskId }); await refreshTime(); } catch (err) { setTimeError(err.response?.data?.message || 'Failed to start timer'); }
+  };
+  const stopTimer = async () => {
+    try { await api.post(`/time-entries/stop/${activeTimer._id}`); await refreshTime(); } catch (err) { setTimeError(err.response?.data?.message || 'Failed to stop timer'); }
+  };
+  const addManualTime = async () => {
+    try { await api.post('/time-entries', { taskId, durationMinutes: Number(manualMinutes), notes: timeNotes }); setManualMinutes(''); setTimeNotes(''); await refreshTime(); } catch (err) { setTimeError(err.response?.data?.message || 'Failed to record time'); }
+  };
 
   // ── UPDATE TASK ───────────────────────────────────────────────────────────
   const handleUpdateTask = async (updates) => {
@@ -249,9 +295,11 @@ const TaskDetailsModal = ({ taskId, onClose, onUpdate }) => {
     if (!newComment.trim()) return;
     setSubmittingComment(true);
     try {
-      const res = await api.post('/comments', { taskId, message: newComment.trim() });
+      const res = await api.post('/comments', { taskId, message: newComment.trim(), mentions: selectedMentions });
       setComments(prev => [...prev, res.data.data]);
       setNewComment('');
+      setSelectedMentions([]);
+      setMentionQuery(null);
       addToast({ type: 'success', message: 'Comment added' });
     } catch (err) {
       addToast({ type: 'error', message: 'Failed to add comment' });
@@ -342,7 +390,35 @@ const TaskDetailsModal = ({ taskId, onClose, onUpdate }) => {
       setTask(taskRes.data.data);
       addToast({ type: 'success', message: 'File uploaded' });
     } catch (err) {
-      addToast({ type: 'error', message: 'Upload failed' });
+      addToast({ type: 'error', message: err.response?.data?.message || 'Upload failed' });
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const handleAttachmentDownload = async (file) => {
+    try {
+      const response = await api.get(`/uploads/${encodeURIComponent(file.fileName)}`, { responseType: 'blob' });
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = file.originalName || file.fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      addToast({ type: 'error', message: err.response?.data?.message || 'Unable to download attachment' });
+    }
+  };
+
+  const handleAttachmentDelete = async (file) => {
+    try {
+      await api.delete(`/uploads/${encodeURIComponent(file.fileName)}`);
+      setTask(current => ({ ...current, attachments: (current.attachments || []).filter(item => item.fileName !== file.fileName) }));
+      addToast({ type: 'success', message: 'Attachment deleted' });
+    } catch (err) {
+      addToast({ type: 'error', message: err.response?.data?.message || 'Unable to delete attachment' });
     }
   };
 
@@ -602,12 +678,29 @@ const TaskDetailsModal = ({ taskId, onClose, onUpdate }) => {
                     min="0"
                     step="0.5"
                     value={task.actualHours || ''}
-                    onChange={e => setTask({ ...task, actualHours: e.target.value })}
-                    onBlur={e => handleUpdateTask({ actualHours: parseFloat(e.target.value) || null })}
-                    className="text-sm text-slate-700 bg-transparent border-none focus:outline-none w-24 p-0"
+                    readOnly
+                    className="text-sm text-slate-700 bg-transparent border-none focus:outline-none w-24 p-0 cursor-not-allowed"
                     placeholder="—"
                   />
                 </FieldRow>
+              </div>
+
+              <div className="border-t border-slate-100 pt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Time Tracking</span>
+                  {activeTimer ? (
+                    <button onClick={stopTimer} className="btn btn-secondary py-1 text-xs"><Square className="h-3 w-3 mr-1" /> Stop timer</button>
+                  ) : (
+                    <button onClick={startTimer} className="btn btn-primary py-1 text-xs"><Play className="h-3 w-3 mr-1" /> Start timer</button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <input type="number" min="1" max="1440" value={manualMinutes} onChange={e => setManualMinutes(e.target.value)} placeholder="Minutes" className="input-field text-sm w-28" />
+                  <input value={timeNotes} onChange={e => setTimeNotes(e.target.value)} placeholder="Notes (optional)" className="input-field text-sm flex-1" />
+                  <button onClick={addManualTime} disabled={!manualMinutes} className="btn btn-secondary text-xs">Add</button>
+                </div>
+                {timeError && <p className="text-xs text-red-600">{timeError}</p>}
+                <p className="text-xs text-slate-500">Logged: {(timeEntries.filter(entry => entry.durationMinutes).reduce((sum, entry) => sum + entry.durationMinutes, 0) / 60).toFixed(2)} hours</p>
               </div>
 
               {/* Progress */}
@@ -668,6 +761,18 @@ const TaskDetailsModal = ({ taskId, onClose, onUpdate }) => {
                         ))}
                       </select>
                       <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                    </div>
+                  )}
+                  {task.dependentTasks?.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-slate-100">
+                      <p className="text-xs font-medium text-slate-500 mb-2">Tasks depending on this task</p>
+                      <div className="space-y-1">
+                        {task.dependentTasks.map(dependent => (
+                          <div key={dependent._id} className="text-sm text-slate-600 bg-slate-50 px-3 py-2 rounded">
+                            {dependent.taskCode}: {dependent.title}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -753,6 +858,7 @@ const TaskDetailsModal = ({ taskId, onClose, onUpdate }) => {
                   onEdit={c => setEditingComment({ _id: c._id, message: c.message })}
                 />
               ))}
+              <Pagination page={commentsPagination?.page || 1} totalPages={commentsPagination?.totalPages || commentsPagination?.pages} onPageChange={fetchCommentsPage} />
 
               {/* Edit comment inline */}
               {editingComment && (
@@ -776,11 +882,40 @@ const TaskDetailsModal = ({ taskId, onClose, onUpdate }) => {
                 <div className="flex-1 relative">
                   <textarea
                     value={newComment}
-                    onChange={e => setNewComment(e.target.value)}
+                    onChange={async e => {
+                      const value = e.target.value;
+                      setNewComment(value);
+                      const match = value.match(/(?:^|\s)@([\w.+-]*)$/);
+                      if (!match) { setMentionQuery(null); return; }
+                      setMentionQuery(match[1]);
+                      try {
+                        const response = await api.get(`/users/mention-search?taskId=${taskId}&search=${encodeURIComponent(match[1])}`);
+                        setMentionUsers(response.data.data);
+                      } catch { setMentionUsers([]); }
+                    }}
                     onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) handleAddComment(e); }}
                     placeholder="Write a comment… (Ctrl+Enter to submit)"
                     className="input-field pr-12 min-h-[80px] resize-y text-sm"
                   />
+                  {mentionQuery !== null && mentionUsers.length > 0 && (
+                    <div className="absolute left-0 right-0 bottom-full mb-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 overflow-hidden">
+                      {mentionUsers.map(mentionUser => (
+                        <button
+                          key={mentionUser._id}
+                          type="button"
+                          className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
+                          onClick={() => {
+                            const replacement = newComment.replace(/(?:^|\s)@[\w.+-]*$/, match => `${match.slice(0, -match.trim().length)}@${mentionUser.email} `);
+                            setNewComment(replacement);
+                            setSelectedMentions(prev => prev.includes(mentionUser._id) ? prev : [...prev, mentionUser._id]);
+                            setMentionQuery(null);
+                          }}
+                        >
+                          {mentionUser.firstName} {mentionUser.lastName} <span className="text-xs text-slate-400">@{mentionUser.email}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <button
                     type="submit"
                     disabled={!newComment.trim() || submittingComment}
@@ -808,11 +943,10 @@ const TaskDetailsModal = ({ taskId, onClose, onUpdate }) => {
               {task.attachments && task.attachments.length > 0 ? (
                 <div className="grid grid-cols-2 gap-3">
                   {task.attachments.map((file, i) => (
-                    <a
+                    <button
                       key={i}
-                      href={`http://localhost:5000${file.path}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      type="button"
+                      onClick={() => handleAttachmentDownload(file)}
                       className="flex items-center gap-2 p-3 rounded-lg border border-slate-200 bg-white hover:border-brand-300 hover:shadow-sm transition-all"
                     >
                       <Paperclip className="h-4 w-4 text-slate-400 flex-shrink-0" />
@@ -822,7 +956,12 @@ const TaskDetailsModal = ({ taskId, onClose, onUpdate }) => {
                           <p className="text-[10px] text-slate-400">{(file.size / 1024).toFixed(1)} KB</p>
                         )}
                       </div>
-                    </a>
+                      {(canDelete || file.uploadedBy?.toString() === user?._id) && (
+                        <span role="button" tabIndex={0} onClick={(event) => { event.stopPropagation(); handleAttachmentDelete(file); }} className="ml-auto text-slate-400 hover:text-red-500">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </span>
+                      )}
+                    </button>
                   ))}
                 </div>
               ) : (
@@ -846,6 +985,7 @@ const TaskDetailsModal = ({ taskId, onClose, onUpdate }) => {
               ) : (
                 activities.map(a => <ActivityRow key={a._id} activity={a} />)
               )}
+              <Pagination page={activityPagination?.page || 1} totalPages={activityPagination?.totalPages || activityPagination?.pages} onPageChange={fetchActivityPage} />
             </div>
           )}
 

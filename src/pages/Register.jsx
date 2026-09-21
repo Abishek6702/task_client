@@ -8,6 +8,8 @@ import { Loader2 } from 'lucide-react';
 const Register = () => {
   const [formData, setFormData] = useState({
     companyName: '',
+    organizationCode: '',
+    organizationEmail: '',
     firstName: '',
     lastName: '',
     email: '',
@@ -58,6 +60,17 @@ const Register = () => {
           className="input-field"
           placeholder="Acme Corp"
         />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="organizationCode" className="label-field">Organization Code</label>
+          <input id="organizationCode" name="organizationCode" required maxLength="20" value={formData.organizationCode} onChange={handleChange} className="input-field" placeholder="ACME" />
+        </div>
+        <div>
+          <label htmlFor="organizationEmail" className="label-field">Organization Email</label>
+          <input id="organizationEmail" name="organizationEmail" type="email" required value={formData.organizationEmail} onChange={handleChange} className="input-field" placeholder="admin@company.com" />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">

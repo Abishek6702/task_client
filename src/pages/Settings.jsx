@@ -28,7 +28,7 @@ const Settings = () => {
 
   // Org state
   const [activeTab, setActiveTab] = useState('profile');
-  const [orgData, setOrgData] = useState({ name: '', domain: '', address: '', website: '' });
+  const [orgData, setOrgData] = useState({ name: '', email: '', phone: '', address: '' });
   const [loadingOrg, setLoadingOrg] = useState(false);
   const [updatingOrg, setUpdatingOrg] = useState(false);
 
@@ -41,9 +41,9 @@ const Settings = () => {
           if (res.data.data) {
             setOrgData({
               name: res.data.data.name || '',
-              domain: res.data.data.domain || '',
+              email: res.data.data.email || '',
+              phone: res.data.data.phone || '',
               address: res.data.data.address || '',
-              website: res.data.data.website || ''
             });
           }
         } catch (err) {
@@ -291,17 +291,12 @@ const Settings = () => {
                   />
                 </div>
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="label-field">Domain / Slug <span className="text-slate-400 font-normal">(Read Only)</span></label>
-                  <input type="text" disabled value={orgData.domain} className="input-field bg-slate-50 text-slate-500 cursor-not-allowed" />
+                  <label className="label-field">Organization Email</label>
+                  <input type="email" required value={orgData.email} onChange={(e) => setOrgData({...orgData, email: e.target.value})} className="input-field" />
                 </div>
                 <div className="col-span-2">
-                  <label className="label-field">Website</label>
-                  <input 
-                    type="url" 
-                    value={orgData.website} 
-                    onChange={(e) => setOrgData({...orgData, website: e.target.value})}
-                    className="input-field" 
-                  />
+                  <label className="label-field">Phone</label>
+                  <input type="tel" value={orgData.phone} onChange={(e) => setOrgData({...orgData, phone: e.target.value})} className="input-field" />
                 </div>
                 <div className="col-span-2">
                   <label className="label-field">Address</label>
