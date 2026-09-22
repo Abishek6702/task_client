@@ -810,7 +810,7 @@ const TaskDetailsModal = ({ taskId, onClose, onUpdate }) => {
                   {task.attachments.map((file, i) => (
                     <a
                       key={i}
-                      href={`http://localhost:5000${file.path}`}
+                      href={file.path}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 p-3 rounded-lg border border-slate-200 bg-white hover:border-brand-300 hover:shadow-sm transition-all"
