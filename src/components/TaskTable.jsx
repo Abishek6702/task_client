@@ -16,7 +16,7 @@ const StatusIcon = ({ status }) => {
   return <Circle className="h-4 w-4 text-slate-300" />;
 };
 
-const TaskTable = ({ projectId, tasks, setTasks, canManage, project, onRefresh }) => {
+const TaskTable = ({ projectId, tasks, setTasks, canManage, canCreateTask, project, onRefresh }) => {
   const { addToast } = useToast();
   const [showCreate, setShowCreate] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
@@ -55,7 +55,7 @@ const TaskTable = ({ projectId, tasks, setTasks, canManage, project, onRefresh }
     <div>
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-slate-500">{tasks.length} tasks</p>
-        {canManage && (
+        {canCreateTask && (
           <button onClick={() => setShowCreate(true)} className="btn btn-primary">
             <Plus className="h-4 w-4 mr-2" /> Add Task
           </button>

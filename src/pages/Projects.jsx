@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Plus, Search, FolderKanban, Filter } from 'lucide-react';
 import api from '../utils/api';
 import { Badge, EmptyState, Skeleton } from '../components/ui';
+import Pagination from '../components/Pagination';
 import { format } from 'date-fns';
 import CreateProjectModal from '../components/CreateProjectModal';
 
@@ -12,14 +13,20 @@ const Projects = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const { user } = useSelector(state => state.auth);
 
-  const fetchProjects = async () => {
+  const fetchProjects = async (requestedPage = page) => {
     try {
       setLoading(true);
-      const res = await api.get('/projects');
+      const params = new URLSearchParams({ page: String(requestedPage), limit: '20' });
+      if (filterStatus) params.set('status', filterStatus);
+      const res = await api.get(`/projects?${params}`);
       setProjects(res.data.data);
+      setPagination(res.data.pagination);
+      setPage(res.data.pagination?.page || requestedPage);
     } catch (err) {
       console.error(err);
     } finally {
@@ -27,7 +34,7 @@ const Projects = () => {
     }
   };
 
-  useEffect(() => { fetchProjects(); }, []);
+  useEffect(() => { fetchProjects(1); }, [filterStatus]);
 
   const canCreate = ['organization_admin', 'project_manager'].includes(user?.role);
 
@@ -165,6 +172,7 @@ const Projects = () => {
               </tbody>
             </table>
           </div>
+          <Pagination page={pagination?.page || 1} totalPages={pagination?.totalPages || pagination?.pages} onPageChange={fetchProjects} />
         </div>
       )}
 

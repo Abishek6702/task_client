@@ -80,17 +80,17 @@ const MainLayout = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex">
       {/* Mobile sidebar */}
-      <div className={`fixed inset-0 z-40 lg:hidden ${sidebarOpen ? '' : 'hidden'}`} role="dialog" aria-modal="true">
+      <div className={`fixed inset-0 z-40 flex lg:hidden ${sidebarOpen ? '' : 'hidden'}`} role="dialog" aria-modal="true">
         <div className="fixed inset-0 bg-slate-900 bg-opacity-80 backdrop-blur-sm" onClick={() => setSidebarOpen(false)}></div>
-        <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white border-r border-slate-200">
-          <div className="absolute top-0 right-0 -mr-12 pt-2">
+        <div className="relative flex h-full flex-1 flex-col max-w-xs w-full bg-white border-r border-slate-200">
+          <div className="absolute top-0 right-0  pt-2">
             <button
               type="button"
               className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
               onClick={() => setSidebarOpen(false)}
             >
               <span className="sr-only">Close sidebar</span>
-              <X className="h-6 w-6 text-white" aria-hidden="true" />
+              <X className="h-6 w-6 text-black" aria-hidden="true" />
             </button>
           </div>
           <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
@@ -98,7 +98,32 @@ const MainLayout = () => {
                <div className="h-8 w-8 bg-brand-600 rounded text-white flex items-center justify-center font-bold text-lg mr-2">TM</div>
               <span className="text-xl font-bold text-slate-900 tracking-tight">TaskMaster</span>
             </div>
-            {/* Mobile Nav contents identical to Desktop */}
+            <nav className="mt-8 flex-1 px-4 space-y-6">
+              {['work', 'management'].map((section) => {
+                const items = navigation.filter((item) => item.section === section);
+                if (!items.length) return null;
+                return (
+                  <div key={section}>
+                    <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                      {section}
+                    </p>
+                    <div className="space-y-1">
+                      {items.map((item) => (
+                        <Link
+                          key={item.name}
+                          to={item.href}
+                          onClick={() => setSidebarOpen(false)}
+                          className={`${item.current ? 'bg-slate-100 text-brand-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'} group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors`}
+                        >
+                          <item.icon className={`${item.current ? 'text-brand-600' : 'text-slate-400 group-hover:text-slate-500'} mr-3 flex-shrink-0 h-5 w-5`} aria-hidden="true" />
+                          {item.name}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </nav>
           </div>
         </div>
       </div>

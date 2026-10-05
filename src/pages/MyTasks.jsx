@@ -90,7 +90,18 @@ const MyTasks = () => {
     return true;
   });
 
-  const overdueCount = tasks.filter(t => t.dueDate && isPast(new Date(t.dueDate)) && !isToday(new Date(t.dueDate)) && t.status !== 'Done').length;
+  const overdueCount   = tasks.filter(t => t.dueDate && isPast(new Date(t.dueDate)) && !isToday(new Date(t.dueDate)) && t.status !== 'Done').length;
+  const todayCount     = tasks.filter(t => t.dueDate && isToday(new Date(t.dueDate))).length;
+  const upcomingCount  = tasks.filter(t => t.dueDate && isFuture(new Date(t.dueDate)) && !isToday(new Date(t.dueDate))).length;
+  const completedCount = tasks.filter(t => t.status === 'Done').length;
+
+  const TAB_COUNTS = {
+    all: tasks.length,
+    today: todayCount,
+    upcoming: upcomingCount,
+    overdue: overdueCount,
+    completed: completedCount,
+  };
 
   return (
     <div className="space-y-6">
@@ -105,22 +116,31 @@ const MyTasks = () => {
 
       {/* Quick filter tabs */}
       <div className="flex items-center gap-1 border-b border-slate-200">
-        {QUICK_FILTERS.map(f => (
-          <button
-            key={f.id}
-            onClick={() => setFilter(f.id)}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              filter === f.id
-                ? 'border-brand-600 text-brand-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            {f.label}
-            {f.id === 'overdue' && overdueCount > 0 && (
-              <span className="ml-1.5 bg-red-100 text-red-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{overdueCount}</span>
-            )}
-          </button>
-        ))}
+        {QUICK_FILTERS.map(f => {
+          const count = TAB_COUNTS[f.id];
+          const isOverdueTab = f.id === 'overdue';
+          const badgeColor = isOverdueTab && count > 0
+            ? 'bg-red-100 text-red-700'
+            : 'bg-slate-100 text-slate-600';
+          return (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                filter === f.id
+                  ? 'border-brand-600 text-brand-700'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {f.label}
+              {count > 0 && (
+                <span className={`ml-1.5 text-xs font-bold px-1.5 py-0.5 rounded-full ${badgeColor}`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Search & filters */}
