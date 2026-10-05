@@ -4,4 +4,18 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    port: 8173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true
+      },
+      '/uploads': {
+        target: 'http://localhost:8000',
+        changeOrigin: true
+      }
+    },
+    allowedHosts:["humidity-performances-pen-filing.trycloudflare.com"]
+  }
 })
