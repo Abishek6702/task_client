@@ -44,7 +44,7 @@ const Dashboard = () => {
           api.get(`/tasks?assignedTo=${user._id}`),
         ];
         
-        if (['organization_admin', 'project_manager'].includes(user?.role)) {
+        if (['organization_admin', 'project_manager', 'team_lead'].includes(user?.role)) {
           promises.push(api.get('/reports/workload'));
         }
 
@@ -91,7 +91,8 @@ const Dashboard = () => {
       </div>
 
       {/* KPI Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <KpiCard title="Total Projects" value={stats?.totalProjects ?? '–'} icon={FolderKanban} iconColor="text-slate-600" bgColor="bg-slate-50" loading={loading} />
         <KpiCard title="Active Projects" value={stats?.activeProjects ?? '–'} icon={FolderKanban} iconColor="text-brand-600" bgColor="bg-brand-50" loading={loading} />
         <KpiCard title="Open Tasks" value={stats?.openTasks ?? '–'} icon={Clock} iconColor="text-blue-600" bgColor="bg-blue-50" loading={loading} />
         <KpiCard title="Completed" value={stats?.completedTasks ?? '–'} icon={CheckCircle2} iconColor="text-green-600" bgColor="bg-green-50" loading={loading} />
@@ -183,7 +184,7 @@ const Dashboard = () => {
         </div>
 
         {/* Role-based extra widget for Admins/Managers */}
-        {['organization_admin', 'project_manager'].includes(user?.role) && (
+        {['organization_admin', 'project_manager', 'team_lead'].includes(user?.role) && (
           <div className="card">
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-slate-900">Team Workload</h2>

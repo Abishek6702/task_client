@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameMonth, isToday, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
@@ -11,6 +11,7 @@ const CalendarPage = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState(null);
   const [filterType, setFilterType] = useState('all');
   const navigate = useNavigate();
@@ -18,16 +19,21 @@ const CalendarPage = () => {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const res = await api.get('/calendar');
+        setLoading(true);
+        setError('');
+        const start = format(startOfMonth(currentDate), 'yyyy-MM-dd');
+        const end = format(endOfMonth(currentDate), 'yyyy-MM-dd');
+        const res = await api.get(`/calendar?start=${start}&end=${end}`);
         setEvents(res.data.data);
       } catch (err) {
         console.error(err);
+        setError(err.response?.data?.message || 'Failed to load calendar events.');
       } finally {
         setLoading(false);
       }
     };
     fetchEvents();
-  }, []);
+  }, [currentDate]);
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -148,6 +154,8 @@ const CalendarPage = () => {
           </div>
           {loading ? (
             <div className="p-5 text-sm text-slate-400">Loading events...</div>
+          ) : error ? (
+            <div className="p-5 text-sm text-red-600">{error}</div>
           ) : (
             <div className="divide-y divide-slate-100">
               {(selectedDate ? selectedEvents : events.filter(e => e.date && new Date(e.date) >= new Date()).slice(0, 10)).map(ev => (
